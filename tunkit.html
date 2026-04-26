@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuizApp</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0d0f14; --surface: #13161e; --card: #181c27; --border: #252a38;
+    --accent: #c8f23a; --accent2: #3af2c8; --text: #e8ecf4; --muted: #7a8099;
+    --correct: #3af2a0; --wrong: #f2503a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: .5;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,20,.9); backdrop-filter: blur(16px);
+  }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem; }
+  .logo span { color: var(--accent); }
+
+  .tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; }
+  .tab {
+    padding: 8px 18px; border-radius: 7px; cursor: pointer;
+    font-family: 'Syne', sans-serif; font-weight: 600; font-size: .85rem;
+    border: none; background: transparent; color: var(--muted); transition: all .2s;
+  }
+  .tab.active { background: var(--accent); color: #0d0f14; }
+  .tab:hover:not(.active) { color: var(--text); background: var(--border); }
+
+  main { max-width: 860px; margin: 0 auto; padding: 36px 24px; position: relative; z-index: 1; }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+  .section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.5rem; margin-bottom: 6px; }
+  .section-sub { color: var(--muted); font-size: .9rem; margin-bottom: 28px; }
+
+  /* IMPORT */
+  .import-zone {
+    border: 2px dashed var(--border); border-radius: 20px; padding: 60px 40px;
+    text-align: center; background: var(--surface); transition: all .25s; cursor: pointer; position: relative;
+  }
+  .import-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width:100%; height:100%; }
+  .import-zone:hover, .import-zone.drag { border-color: var(--accent); background: rgba(200,242,58,.04); }
+  .import-icon { font-size: 3.5rem; margin-bottom: 16px; }
+  .import-zone h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.3rem; margin-bottom: 8px; }
+  .import-zone p { color: var(--muted); font-size: .9rem; line-height: 1.6; }
+
+  .divider { display: flex; align-items: center; gap: 16px; margin: 28px 0; color: var(--muted); font-size: .85rem; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .paste-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; transition: border-color .2s; }
+  .paste-box:focus-within { border-color: var(--accent); }
+  .paste-box-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--card); }
+  .paste-box-header span { font-family: 'Syne', sans-serif; font-size: .85rem; font-weight: 600; color: var(--muted); }
+  .paste-textarea {
+    width: 100%; min-height: 160px; max-height: 300px;
+    background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: .8rem;
+    line-height: 1.6; padding: 16px; resize: vertical;
+  }
+  .paste-textarea::placeholder { color: var(--border); }
+
+  .format-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; }
+  .format-card h4 { font-family: 'Syne', sans-serif; font-size: .95rem; margin-bottom: 12px; color: var(--accent); }
+  pre { font-family: 'DM Mono', monospace; font-size: .78rem; color: var(--muted); line-height: 1.7; overflow-x: auto; white-space: pre-wrap; }
+  pre .key { color: var(--accent2); }
+  pre .val { color: var(--accent); }
+  pre .str { color: #e8a87c; }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
+  .toolbar-right { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+  .count-badge { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--muted); }
+  .count-badge strong { color: var(--accent); }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: 9px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 600; font-size: .85rem; transition: all .2s; }
+  .btn-primary { background: var(--accent); color: #0d0f14; }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: rgba(242,80,58,.12); color: var(--wrong); border: 1px solid rgba(242,80,58,.25); }
+  .btn-danger:hover { background: rgba(242,80,58,.22); }
+
+  /* QUIZ LIST */
+  .quiz-list { display: flex; flex-direction: column; gap: 12px; }
+  .quiz-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; transition: border-color .2s; }
+  .quiz-card:hover { border-color: rgba(200,242,58,.3); }
+  .quiz-card-header { display: flex; gap: 12px; align-items: flex-start; }
+  .quiz-num { font-family: 'DM Mono', monospace; font-size: .75rem; color: var(--accent); background: rgba(200,242,58,.1); padding: 3px 9px; border-radius: 6px; white-space: nowrap; flex-shrink: 0; }
+  .quiz-q { font-weight: 500; line-height: 1.55; flex: 1; }
+  .quiz-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-btn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: .9rem; transition: all .2s; }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .quiz-answers { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .ans-chip { padding: 7px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: .84rem; display: flex; gap: 8px; align-items: center; }
+  .ans-chip.correct { border-color: var(--correct); background: rgba(58,242,160,.07); }
+  .ans-key { font-family: 'DM Mono', monospace; font-size: .72rem; color: var(--muted); flex-shrink:0; }
+  .ans-chip.correct .ans-key { color: var(--correct); }
+
+  /* MODAL */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(8px); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-backdrop.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 28px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; animation: slideUp .3s ease; }
+  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:none;opacity:1} }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 1.15rem; font-weight: 700; margin-bottom: 20px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field textarea, .field select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: .9rem; outline: none; transition: border-color .2s; }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 75px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* PLAY */
+  .play-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 32px; position: relative; overflow: hidden; }
+  .play-card::before { content: ''; position: absolute; top: -50px; right: -50px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(200,242,58,.07), transparent 70%); pointer-events: none; }
+  .play-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+  .progress-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s ease; }
+  .play-num { font-family: 'DM Mono', monospace; font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  .score-chip { font-family: 'DM Mono', monospace; font-size: .8rem; background: rgba(58,242,200,.1); color: var(--accent2); border: 1px solid rgba(58,242,200,.2); padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .play-q { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; line-height: 1.55; margin-bottom: 26px; }
+  .play-answers { display: flex; flex-direction: column; gap: 10px; }
+  .play-ans { padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; display: flex; gap: 12px; align-items: center; transition: all .2s; font-size: .95rem; }
+  .play-ans:hover:not(.disabled) { border-color: var(--accent); background: rgba(200,242,58,.05); transform: translateX(3px); }
+  .play-ans.correct { border-color: var(--correct); background: rgba(58,242,160,.1); }
+  .play-ans.wrong { border-color: var(--wrong); background: rgba(242,80,58,.1); }
+  .play-ans.disabled { cursor: default; transform: none !important; }
+  .ans-letter { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; background: var(--border); display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: .82rem; font-weight: 600; transition: all .2s; }
+  .play-ans.correct .ans-letter { background: var(--correct); color: #0d0f14; }
+  .play-ans.wrong .ans-letter { background: var(--wrong); color: #fff; }
+  .play-footer { margin-top: 22px; display: flex; justify-content: flex-end; }
+
+  /* RESULT */
+  .result-screen { text-align: center; padding: 48px 20px; }
+  .result-emoji { font-size: 4rem; margin-bottom: 14px; }
+  .result-score { font-family: 'Syne', sans-serif; font-size: 4rem; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 6px; }
+  .result-label { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; }
+  .result-sub { color: var(--muted); margin-bottom: 32px; font-size: .9rem; }
+  .result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* EMPTY */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 12px; opacity: .4; }
+  .empty-state p { font-size: .9rem; line-height: 1.6; }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(16px); background: var(--accent); color: #0d0f14; padding: 10px 24px; border-radius: 40px; font-family: 'Syne', sans-serif; font-weight: 600; font-size: .85rem; opacity: 0; transition: all .3s; z-index: 999; pointer-events: none; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* TRUE/FALSE */
+  .tf-buttons { display: flex; gap: 14px; margin-top: 24px; }
+  .tf-btn { flex: 1; padding: 20px; border-radius: 14px; border: 2px solid var(--border); background: var(--surface); cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--text); transition: all .2s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .tf-btn .tf-icon { font-size: 2rem; }
+  .tf-btn:hover:not(.disabled) { transform: translateY(-3px); }
+  .tf-btn.true-btn:hover:not(.disabled) { border-color: var(--correct); background: rgba(58,242,160,.08); color: var(--correct); }
+  .tf-btn.false-btn:hover:not(.disabled) { border-color: var(--wrong); background: rgba(242,80,58,.08); color: var(--wrong); }
+  .tf-btn.selected-correct { border-color: var(--correct); background: rgba(58,242,160,.12); color: var(--correct); }
+  .tf-btn.selected-wrong { border-color: var(--wrong); background: rgba(242,80,58,.12); color: var(--wrong); }
+  .tf-btn.reveal-correct { border-color: var(--correct); background: rgba(58,242,160,.12); color: var(--correct); }
+  .tf-btn.disabled { cursor: default; transform: none !important; }
+  .tf-feedback { margin-top: 18px; padding: 12px 18px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 600; font-size: .95rem; display: none; }
+  .tf-feedback.correct { background: rgba(58,242,160,.1); color: var(--correct); border: 1px solid rgba(58,242,160,.2); display: block; }
+  .tf-feedback.wrong { background: rgba(242,80,58,.1); color: var(--wrong); border: 1px solid rgba(242,80,58,.2); display: block; }
+  .tf-badge { padding: 4px 12px; border-radius: 20px; font-size: .8rem; font-family: 'DM Mono', monospace; font-weight: 600; flex-shrink: 0; }
+  .tf-badge.true { background: rgba(58,242,160,.12); color: var(--correct); border: 1px solid rgba(58,242,160,.25); }
+  .tf-badge.false { background: rgba(242,80,58,.12); color: var(--wrong); border: 1px solid rgba(242,80,58,.25); }
+  .tf-list-card { display: flex; align-items: flex-start; gap: 12px; }
+
+  .social-btn { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; color:var(--muted); border:1px solid var(--border); transition:all .2s; text-decoration:none; }
+  .social-btn:hover { color:var(--accent); border-color:var(--accent); background:rgba(200,242,58,.07); transform:translateY(-1px); }
+  .author-socials { display:flex; gap:6px; }
+
+  footer { border-top:1px solid var(--border); padding:28px 40px; text-align:center; position:relative; z-index:1; }
+  .footer-inner { max-width:860px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .footer-name { font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; }
+  .footer-name span { color:var(--accent); }
+  .footer-desc { color:var(--muted); font-size:.85rem; }
+  .footer-links { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .footer-link { display:inline-flex; align-items:center; gap:7px; padding:7px 16px; border-radius:8px; border:1px solid var(--border); color:var(--muted); text-decoration:none; font-size:.82rem; font-family:'Syne',sans-serif; font-weight:600; transition:all .2s; }
+  .footer-link:hover { border-color:var(--accent); color:var(--accent); background:rgba(200,242,58,.05); }
+
+  @media(max-width:600px) {
+    header { padding: 14px 16px; flex-direction: column; gap: 12px; }
+    main { padding: 20px 14px; }
+    .quiz-answers { grid-template-columns: 1fr; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar-right { margin-left: 0; }
+    .tf-buttons { flex-direction: column; }
+    footer { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="logo">Tún<span>Kịt</span></div>
+    <div class="author-socials">
+      <a href="https://www.facebook.com/tunnnkitt" target="_blank" title="Facebook" class="social-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      </a>
+      <a href="https://github.com/thaytrosocvang" target="_blank" title="GitHub" class="social-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      </a>
+      <a href="https://www.instagram.com/tunkytt/" target="_blank" title="Instagram" class="social-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162S8.597 18.163 12 18.163s6.162-2.759 6.162-6.162S15.403 5.838 12 5.838zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+      </a>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('import',this)">📁 Import</button>
+    <button class="tab" onclick="switchTab('manage',this)">📋 Câu hỏi</button>
+    <button class="tab" onclick="switchTab('truefalse',this)">✅ Đúng/Sai</button>
+    <button class="tab" onclick="switchTab('play',this)">🎮 Làm bài</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- IMPORT -->
+  <div class="panel active" id="panel-import">
+    <div class="section-title">Import Quiz từ JSON</div>
+    <div class="section-sub">Kéo thả file JSON vào đây hoặc click để chọn file</div>
+    <div class="import-zone" id="importZone">
+      <input type="file" accept=".json" id="jsonFile" onchange="importJSON(event)" />
+      <div class="import-icon">📂</div>
+      <h2>Kéo file JSON vào đây</h2>
+      <p>hoặc click để chọn file từ máy tính<br>Hỗ trợ file .json với danh sách câu hỏi trắc nghiệm</p>
+    </div>
+    <div class="divider">hoặc dán JSON trực tiếp</div>
+    <div class="paste-box">
+      <div class="paste-box-header">
+        <span>📋 Dán JSON vào đây</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" style="padding:5px 12px;font-size:.78rem;" onclick="clearPaste('pasteArea')">Xóa</button>
+          <button class="btn btn-primary" style="padding:5px 12px;font-size:.78rem;" onclick="importFromText()">✓ Import</button>
+        </div>
+      </div>
+      <textarea class="paste-textarea" id="pasteArea" placeholder='[{"question":"Câu hỏi?","answers":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A"}]'></textarea>
+    </div>
+    <div class="divider">hoặc thử với dữ liệu mẫu</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px;">
+      <button class="btn btn-primary" onclick="loadSample()">🎲 Load 5 câu mẫu</button>
+      <button class="btn btn-secondary" onclick="downloadSample()">⬇ Tải file JSON mẫu</button>
+    </div>
+    <div class="format-card">
+      <h4>📌 Format file JSON chuẩn — Trắc nghiệm</h4>
+      <pre>[
+  {
+    <span class="key">"question"</span>: <span class="str">"Câu hỏi của bạn?"</span>,
+    <span class="key">"answers"</span>: {
+      <span class="key">"A"</span>: <span class="str">"Đáp án A"</span>, <span class="key">"B"</span>: <span class="str">"Đáp án B"</span>,
+      <span class="key">"C"</span>: <span class="str">"Đáp án C"</span>, <span class="key">"D"</span>: <span class="str">"Đáp án D"</span>
+    },
+    <span class="key">"correct"</span>: <span class="str">"A"</span>
+  }
+]</pre>
+    </div>
+  </div>
+
+  <!-- MANAGE -->
+  <div class="panel" id="panel-manage">
+    <div class="toolbar">
+      <div>
+        <div class="section-title">Danh sách câu hỏi</div>
+        <div class="section-sub" style="margin:0">Xem, sửa, xóa từng câu</div>
+      </div>
+      <div class="toolbar-right">
+        <div class="count-badge"><strong id="totalCount">0</strong> câu</div>
+        <button class="btn btn-primary" onclick="openAddModal()">+ Thêm câu</button>
+        <button class="btn btn-secondary" onclick="exportJSON()">⬇ Export JSON</button>
+        <button class="btn btn-danger" onclick="clearAll()">🗑 Xóa tất cả</button>
+      </div>
+    </div>
+    <div class="quiz-list" id="quizList"></div>
+    <div class="empty-state" id="emptyState">
+      <div class="icon">📭</div>
+      <p>Chưa có câu hỏi nào.<br>Import file JSON hoặc thêm thủ công bên trên!</p>
+    </div>
+  </div>
+
+  <!-- TRUE/FALSE -->
+  <div class="panel" id="panel-truefalse">
+    <div class="toolbar">
+      <div>
+        <div class="section-title">Câu hỏi Đúng / Sai</div>
+        <div class="section-sub" style="margin:0">Thêm, sửa, xóa câu hỏi dạng đúng/sai</div>
+      </div>
+      <div class="toolbar-right">
+        <div class="count-badge"><strong id="tfCount">0</strong> câu</div>
+        <button class="btn btn-primary" onclick="openTFModal()">+ Thêm câu</button>
+        <button class="btn btn-secondary" onclick="exportTFJSON()">⬇ Export JSON</button>
+        <button class="btn btn-primary" style="background:var(--accent2);color:#0d0f14;" onclick="startTFPlay()">🎮 Làm bài ĐS</button>
+        <button class="btn btn-danger" onclick="clearTFAll()">🗑 Xóa tất cả</button>
+      </div>
+    </div>
+    <!-- TF Import paste -->
+    <div class="paste-box" style="margin-bottom:20px;">
+      <div class="paste-box-header">
+        <span>📋 Dán JSON Đúng/Sai vào đây</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" style="padding:5px 12px;font-size:.78rem;" onclick="clearPaste('tfPasteArea')">Xóa</button>
+          <button class="btn btn-primary" style="padding:5px 12px;font-size:.78rem;" onclick="importTFFromText()">✓ Import</button>
+        </div>
+      </div>
+      <textarea class="paste-textarea" id="tfPasteArea" placeholder='[{"question":"Mệnh đề...","type":"truefalse","correct":"true"}]'></textarea>
+    </div>
+    <div id="tfPlayArea"></div>
+    <div id="tfListWrap">
+      <div class="quiz-list" id="tfList"></div>
+      <div class="empty-state" id="tfEmptyState">
+        <div class="icon">🔘</div>
+        <p>Chưa có câu hỏi đúng/sai nào.<br>Dán JSON hoặc nhấn <strong>+ Thêm câu</strong>!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAY -->
+  <div class="panel" id="panel-play">
+    <div class="section-title">Làm bài Quiz</div>
+    <div class="section-sub">Kiểm tra kiến thức với bộ câu hỏi trắc nghiệm</div>
+    <div id="playArea"></div>
+  </div>
+
+</main>
+
+<!-- MODAL: EDIT MCQ -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="if(event.target===this)closeModalDirect()">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Thêm câu hỏi</div>
+    <div class="field"><label>Câu hỏi *</label><textarea id="fQ" rows="3" placeholder="Nhập nội dung câu hỏi..."></textarea></div>
+    <div class="field"><label>Đáp án A</label><input id="fA" placeholder="Nội dung đáp án A..." /></div>
+    <div class="field"><label>Đáp án B</label><input id="fB" placeholder="Nội dung đáp án B..." /></div>
+    <div class="field"><label>Đáp án C</label><input id="fC" placeholder="Nội dung đáp án C..." /></div>
+    <div class="field"><label>Đáp án D</label><input id="fD" placeholder="Nội dung đáp án D..." /></div>
+    <div class="field">
+      <label>Đáp án đúng *</label>
+      <select id="fCorrect"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModalDirect()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveQuiz()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDIT TF -->
+<div class="modal-backdrop" id="tfModalBackdrop" onclick="if(event.target===this)closeTFModalDirect()">
+  <div class="modal">
+    <div class="modal-title" id="tfModalTitle">Thêm câu Đúng/Sai</div>
+    <div class="field"><label>Nội dung câu hỏi *</label><textarea id="tfQ" rows="3" placeholder="Ví dụ: Hà Nội là thủ đô của Việt Nam."></textarea></div>
+    <div class="field">
+      <label>Đáp án đúng *</label>
+      <select id="tfCorrect"><option value="true">✅ Đúng</option><option value="false">❌ Sai</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeTFModalDirect()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveTFQuiz()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-name">Tún<span>Kịt</span></div>
+    <div class="footer-desc">Ứng dụng quiz học tập — được tạo bởi Tún Kịt 🎓</div>
+    <div class="footer-links">
+      <a href="https://www.facebook.com/tunnnkitt" target="_blank" class="footer-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        Facebook
+      </a>
+      <a href="https://github.com/thaytrosocvang" target="_blank" class="footer-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <a href="https://www.instagram.com/tunkytt/" target="_blank" class="footer-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162S8.597 18.163 12 18.163s6.162-2.759 6.162-6.162S15.403 5.838 12 5.838zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+        Instagram
+      </a>
+    </div>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+// ===== STATE =====
+let quizData = [];
+let tfData = [];
+try { quizData = JSON.parse(localStorage.getItem('quizapp_data') || '[]'); } catch(e){}
+try { tfData = JSON.parse(localStorage.getItem('quizapp_tf_data') || '[]'); } catch(e){}
+
+let editIndex = -1;
+let playSet = [], playIndex = 0, playScore = 0, playAnswered = false;
+let tfEditIndex = -1;
+let tfPlaySet = [], tfPlayIndex = 0, tfPlayScore = 0, tfPlayAnswered = false;
+
+// ===== TABS =====
+function switchTab(tab, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'manage') renderList();
+  if (tab === 'truefalse') renderTFList();
+  if (tab === 'play') renderPlayPanel();
+}
+
+// ===== UTILS =====
+function saveData() { try { localStorage.setItem('quizapp_data', JSON.stringify(quizData)); } catch(e){} }
+function saveTFData() { try { localStorage.setItem('quizapp_tf_data', JSON.stringify(tfData)); } catch(e){} }
+function clearPaste(id) { document.getElementById(id).value = ''; }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+function normalizeQuiz(data) {
+  return data.map(q => ({
+    question: q.question || q.q || q.title || '',
+    answers: q.answers || q.options || { A:'', B:'', C:'', D:'' },
+    correct: (q.correct || q.correct_answer || q.answer || 'A').toString().toUpperCase()
+  })).filter(q => q.question);
+}
+function normalizeTF(data) {
+  return data.map(q => ({
+    question: q.question || q.q || '',
+    type: 'truefalse',
+    correct: String(q.correct).toLowerCase() === 'true' ? 'true' : 'false'
+  })).filter(q => q.question);
+}
+
+// ===== IMPORT MCQ =====
+const importZone = document.getElementById('importZone');
+importZone.addEventListener('dragover', e => { e.preventDefault(); importZone.classList.add('drag'); });
+importZone.addEventListener('dragleave', () => importZone.classList.remove('drag'));
+importZone.addEventListener('drop', e => {
+  e.preventDefault(); importZone.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.json')) readJSONFile(file);
+  else showToast('⚠️ Chỉ hỗ trợ file .json');
+});
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (file) readJSONFile(file);
+  e.target.value = '';
+}
+
+function readJSONFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      let raw = JSON.parse(e.target.result);
+      if (!Array.isArray(raw)) raw = raw.questions || raw.quiz || raw.data || [];
+      const data = normalizeQuiz(raw);
+      if (!data.length) throw new Error('Không tìm thấy câu hỏi hợp lệ');
+      quizData.push(...data);
+      saveData();
+      showToast('✅ Import ' + data.length + ' câu thành công!');
+      setTimeout(() => document.querySelectorAll('.tab')[1].click(), 800);
+    } catch(err) { showToast('❌ ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+function importFromText() {
+  const raw = document.getElementById('pasteArea').value.trim();
+  if (!raw) { showToast('⚠️ Chưa có nội dung!'); return; }
+  try {
+    let parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) parsed = parsed.questions || parsed.quiz || parsed.data || parsed.tracnghiem || [];
+    const data = normalizeQuiz(parsed);
+    if (!data.length) throw new Error('Không tìm thấy câu hỏi hợp lệ');
+    quizData.push(...data);
+    saveData();
+    document.getElementById('pasteArea').value = '';
+    showToast('✅ Import ' + data.length + ' câu thành công!');
+    setTimeout(() => document.querySelectorAll('.tab')[1].click(), 800);
+  } catch(err) { showToast('❌ JSON không hợp lệ: ' + err.message); }
+}
+
+function loadSample() {
+  const sample = [
+    { question: "Thủ đô của Việt Nam là?", answers: { A:"Hồ Chí Minh", B:"Hà Nội", C:"Đà Nẵng", D:"Huế" }, correct:"B" },
+    { question: "2² + 3² = ?", answers: { A:"10", B:"11", C:"13", D:"25" }, correct:"C" },
+    { question: "HTTP là viết tắt của?", answers: { A:"HyperText Transfer Protocol", B:"High Tech Transfer Protocol", C:"HyperText Terminal Protocol", D:"Home Transfer Protocol" }, correct:"A" },
+    { question: "Nguyên tố hóa học có ký hiệu Fe là?", answers: { A:"Đồng", B:"Nhôm", C:"Sắt", D:"Kẽm" }, correct:"C" },
+    { question: "Năm nào Việt Nam thống nhất đất nước?", answers: { A:"1973", B:"1974", C:"1975", D:"1976" }, correct:"C" },
+  ];
+  quizData.push(...sample); saveData();
+  showToast('🎲 Đã load 5 câu mẫu!');
+  setTimeout(() => document.querySelectorAll('.tab')[1].click(), 800);
+}
+
+function downloadSample() {
+  const sample = [
+    { question: "Thủ đô của Việt Nam là?", answers: { A:"Hồ Chí Minh", B:"Hà Nội", C:"Đà Nẵng", D:"Huế" }, correct:"B" },
+  ];
+  const blob = new Blob([JSON.stringify(sample, null, 2)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'quiz-mau.json'; a.click();
+}
+
+// ===== MANAGE MCQ =====
+function renderList() {
+  document.getElementById('totalCount').textContent = quizData.length;
+  const list = document.getElementById('quizList');
+  const empty = document.getElementById('emptyState');
+  if (!quizData.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = quizData.map((q, i) => {
+    const ans = q.answers || {};
+    const chips = Object.entries(ans).map(([k,v]) => `
+      <div class="ans-chip ${k===q.correct?'correct':''}">
+        <span class="ans-key">${k}</span>${v}${k===q.correct?' ✓':''}
+      </div>`).join('');
+    return `<div class="quiz-card">
+      <div class="quiz-card-header">
+        <span class="quiz-num">Câu ${i+1}</span>
+        <div class="quiz-q">${q.question}</div>
+        <div class="quiz-actions">
+          <button class="icon-btn" onclick="openEditModal(${i})">✏️</button>
+          <button class="icon-btn" onclick="deleteQ(${i})">🗑</button>
+        </div>
+      </div>
+      <div class="quiz-answers">${chips}</div>
+    </div>`;
+  }).join('');
+}
+
+function deleteQ(i) { quizData.splice(i,1); saveData(); renderList(); showToast('🗑 Đã xóa câu '+(i+1)); }
+function clearAll() {
+  if (!confirm('Xóa tất cả '+quizData.length+' câu hỏi?')) return;
+  quizData=[]; saveData(); renderList(); showToast('🗑 Đã xóa tất cả');
+}
+function exportJSON() {
+  if (!quizData.length) { showToast('Chưa có câu hỏi!'); return; }
+  const blob = new Blob([JSON.stringify(quizData,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='quiz-export.json'; a.click();
+  showToast('⬇ Đã export!');
+}
+
+// ===== MODAL MCQ =====
+function openAddModal() {
+  editIndex = -1;
+  document.getElementById('modalTitle').textContent = 'Thêm câu hỏi';
+  ['fQ','fA','fB','fC','fD'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fCorrect').value = 'A';
+  document.getElementById('modalBackdrop').classList.add('show');
+}
+function openEditModal(i) {
+  editIndex = i; const q = quizData[i];
+  document.getElementById('modalTitle').textContent = 'Sửa câu '+(i+1);
+  document.getElementById('fQ').value = q.question||'';
+  const a = q.answers||{};
+  ['A','B','C','D'].forEach(k => document.getElementById('f'+k).value = a[k]||'');
+  document.getElementById('fCorrect').value = q.correct||'A';
+  document.getElementById('modalBackdrop').classList.add('show');
+}
+function saveQuiz() {
+  const q = document.getElementById('fQ').value.trim();
+  if (!q) { showToast('⚠️ Nhập câu hỏi!'); return; }
+  const obj = { question:q, answers:{ A:document.getElementById('fA').value.trim(), B:document.getElementById('fB').value.trim(), C:document.getElementById('fC').value.trim(), D:document.getElementById('fD').value.trim() }, correct:document.getElementById('fCorrect').value };
+  if (editIndex>=0) quizData[editIndex]=obj; else quizData.push(obj);
+  saveData(); renderList(); closeModalDirect();
+  showToast(editIndex>=0?'✅ Đã cập nhật!':'✅ Đã thêm!');
+}
+function closeModalDirect() { document.getElementById('modalBackdrop').classList.remove('show'); }
+
+// ===== TRUE/FALSE =====
+function importTFFromText() {
+  const raw = document.getElementById('tfPasteArea').value.trim();
+  if (!raw) { showToast('⚠️ Chưa có nội dung!'); return; }
+  try {
+    let parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) parsed = parsed.duysai || parsed.truefalse || parsed.tf || [];
+    const data = normalizeTF(parsed);
+    if (!data.length) throw new Error('Không tìm thấy câu hỏi hợp lệ');
+    tfData.push(...data);
+    saveTFData(); renderTFList();
+    document.getElementById('tfPasteArea').value = '';
+    showToast('✅ Import ' + data.length + ' câu đúng/sai!');
+  } catch(err) { showToast('❌ JSON không hợp lệ: ' + err.message); }
+}
+
+function renderTFList() {
+  document.getElementById('tfCount').textContent = tfData.length;
+  document.getElementById('tfPlayArea').innerHTML = '';
+  document.getElementById('tfListWrap').style.display = 'block';
+  const list = document.getElementById('tfList');
+  const empty = document.getElementById('tfEmptyState');
+  if (!tfData.length) { list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = tfData.map((q,i) => `
+    <div class="quiz-card tf-list-card">
+      <span class="quiz-num">Câu ${i+1}</span>
+      <div class="quiz-q" style="flex:1">${q.question}</div>
+      <span class="tf-badge ${q.correct==='true'?'true':'false'}">${q.correct==='true'?'✅ Đúng':'❌ Sai'}</span>
+      <div style="display:flex;gap:6px;">
+        <button class="icon-btn" onclick="openTFEditModal(${i})">✏️</button>
+        <button class="icon-btn" onclick="deleteTF(${i})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function deleteTF(i) { tfData.splice(i,1); saveTFData(); renderTFList(); showToast('🗑 Đã xóa câu '+(i+1)); }
+function clearTFAll() {
+  if (!confirm('Xóa tất cả '+tfData.length+' câu hỏi đúng/sai?')) return;
+  tfData=[]; saveTFData(); renderTFList(); showToast('🗑 Đã xóa tất cả');
+}
+function exportTFJSON() {
+  if (!tfData.length) { showToast('Chưa có câu hỏi!'); return; }
+  const blob = new Blob([JSON.stringify(tfData,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='quiz-duysai-export.json'; a.click();
+  showToast('⬇ Đã export!');
+}
+
+// ===== MODAL TF =====
+function openTFModal() {
+  tfEditIndex=-1;
+  document.getElementById('tfModalTitle').textContent='Thêm câu Đúng/Sai';
+  document.getElementById('tfQ').value='';
+  document.getElementById('tfCorrect').value='true';
+  document.getElementById('tfModalBackdrop').classList.add('show');
+}
+function openTFEditModal(i) {
+  tfEditIndex=i; const q=tfData[i];
+  document.getElementById('tfModalTitle').textContent='Sửa câu '+(i+1);
+  document.getElementById('tfQ').value=q.question||'';
+  document.getElementById('tfCorrect').value=q.correct;
+  document.getElementById('tfModalBackdrop').classList.add('show');
+}
+function saveTFQuiz() {
+  const q=document.getElementById('tfQ').value.trim();
+  if (!q) { showToast('⚠️ Nhập câu hỏi!'); return; }
+  const obj={question:q,type:'truefalse',correct:document.getElementById('tfCorrect').value};
+  if (tfEditIndex>=0) tfData[tfEditIndex]=obj; else tfData.push(obj);
+  saveTFData(); renderTFList(); closeTFModalDirect();
+  showToast(tfEditIndex>=0?'✅ Đã cập nhật!':'✅ Đã thêm!');
+}
+function closeTFModalDirect() { document.getElementById('tfModalBackdrop').classList.remove('show'); }
+
+// ===== TF PLAY =====
+function startTFPlay() {
+  if (!tfData.length) { showToast('⚠️ Chưa có câu hỏi đúng/sai!'); return; }
+  tfPlaySet=[...tfData].sort(()=>Math.random()-.5);
+  tfPlayIndex=0; tfPlayScore=0;
+  document.getElementById('tfListWrap').style.display='none';
+  renderTFPlay();
+}
+function renderTFPlay() {
+  const area=document.getElementById('tfPlayArea');
+  if (tfPlayIndex>=tfPlaySet.length) { renderTFResult(); return; }
+  const q=tfPlaySet[tfPlayIndex];
+  const pct=(tfPlayIndex/tfPlaySet.length*100).toFixed(0);
+  area.innerHTML=`
+    <div class="play-card">
+      <div class="play-progress">
+        <span class="play-num">${tfPlayIndex+1}/${tfPlaySet.length}</span>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="score-chip">✓ ${tfPlayScore}</div>
+      </div>
+      <div class="play-q">${q.question}</div>
+      <div class="tf-buttons">
+        <button class="tf-btn true-btn" id="tfbtn-true" onclick="pickTF('true','${q.correct}')">
+          <span class="tf-icon">✅</span>ĐÚNG
+        </button>
+        <button class="tf-btn false-btn" id="tfbtn-false" onclick="pickTF('false','${q.correct}')">
+          <span class="tf-icon">❌</span>SAI
+        </button>
+      </div>
+      <div id="tfFeedback"></div>
+      <div class="play-footer" style="margin-top:18px;">
+        <button class="btn btn-primary" id="tfNextBtn" style="display:none" onclick="nextTF()">
+          ${tfPlayIndex+1<tfPlaySet.length?'Tiếp theo →':'🏁 Xem kết quả'}
+        </button>
+      </div>
+    </div>`;
+  tfPlayAnswered=false;
+}
+function pickTF(chosen, correct) {
+  if (tfPlayAnswered) return;
+  tfPlayAnswered=true;
+  document.querySelectorAll('.tf-btn').forEach(b=>b.classList.add('disabled'));
+  const isOk=chosen===correct;
+  document.getElementById('tfbtn-'+correct).classList.add('reveal-correct');
+  if (isOk) { document.getElementById('tfbtn-'+chosen).classList.add('selected-correct'); tfPlayScore++; }
+  else document.getElementById('tfbtn-'+chosen).classList.add('selected-wrong');
+  const fb=document.getElementById('tfFeedback');
+  fb.className='tf-feedback '+(isOk?'correct':'wrong');
+  fb.textContent=isOk?'🎉 Chính xác!':'❌ Sai rồi! Đáp án đúng là: '+(correct==='true'?'ĐÚNG':'SAI');
+  document.getElementById('tfNextBtn').style.display='inline-flex';
+}
+function nextTF() { tfPlayIndex++; renderTFPlay(); }
+function renderTFResult() {
+  const total=tfPlaySet.length, pct=Math.round(tfPlayScore/total*100);
+  const emoji=pct>=80?'🏆':pct>=60?'😊':pct>=40?'🤔':'📚';
+  const msg=pct>=80?'Xuất sắc! Bạn nắm rất vững.':pct>=60?'Khá tốt! Cố gắng thêm nhé.':pct>=40?'Cần ôn tập thêm.':'Hãy ôn tập kỹ hơn nhé!';
+  document.getElementById('tfPlayArea').innerHTML=`
+    <div class="play-card result-screen">
+      <div class="result-emoji">${emoji}</div>
+      <div class="result-score">${pct}%</div>
+      <div class="result-label">${tfPlayScore} / ${total} câu đúng</div>
+      <div class="result-sub">${msg}</div>
+      <div class="result-actions">
+        <button class="btn btn-primary" onclick="startTFPlay()">🔄 Làm lại</button>
+        <button class="btn btn-secondary" onclick="renderTFList()">📋 Xem câu hỏi</button>
+      </div>
+    </div>`;
+}
+
+// ===== MCQ PLAY =====
+function renderPlayPanel() {
+  if (!quizData.length) {
+    document.getElementById('playArea').innerHTML=`
+      <div class="empty-state">
+        <div class="icon">🎮</div>
+        <p>Chưa có câu hỏi nào.<br>Import file JSON trước nhé!</p>
+        <br><button class="btn btn-primary" style="margin:0 auto;display:inline-flex;" onclick="switchTab('import',document.querySelector('.tab'))">📁 Import ngay</button>
+      </div>`;
+    return;
+  }
+  playSet=[...quizData].sort(()=>Math.random()-.5);
+  playIndex=0; playScore=0;
+  renderPlay();
+}
+function renderPlay() {
+  if (playIndex>=playSet.length) { renderResult(); return; }
+  const q=playSet[playIndex], ans=q.answers||{};
+  const pct=(playIndex/playSet.length*100).toFixed(0);
+  document.getElementById('playArea').innerHTML=`
+    <div class="play-card">
+      <div class="play-progress">
+        <span class="play-num">${playIndex+1}/${playSet.length}</span>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="score-chip">✓ ${playScore}</div>
+      </div>
+      <div class="play-q">${q.question}</div>
+      <div class="play-answers">
+        ${Object.entries(ans).map(([k,v])=>`
+          <div class="play-ans" id="pans-${k}" onclick="pick('${k}','${q.correct}')">
+            <div class="ans-letter">${k}</div><span>${v}</span>
+          </div>`).join('')}
+      </div>
+      <div class="play-footer">
+        <button class="btn btn-primary" id="nextBtn" style="display:none" onclick="nextQ()">
+          ${playIndex+1<playSet.length?'Tiếp theo →':'🏁 Xem kết quả'}
+        </button>
+      </div>
+    </div>`;
+  playAnswered=false;
+}
+function pick(chosen, correct) {
+  if (playAnswered) return;
+  playAnswered=true;
+  document.querySelectorAll('.play-ans').forEach(el=>el.classList.add('disabled'));
+  document.getElementById('pans-'+correct).classList.add('correct');
+  document.getElementById('pans-'+correct).querySelector('.ans-letter').textContent='✓';
+  if (chosen!==correct) document.getElementById('pans-'+chosen).classList.add('wrong');
+  else playScore++;
+  document.getElementById('nextBtn').style.display='inline-flex';
+}
+function nextQ() { playIndex++; renderPlay(); }
+function renderResult() {
+  const total=playSet.length, pct=Math.round(playScore/total*100);
+  const emoji=pct>=80?'🏆':pct>=60?'😊':pct>=40?'🤔':'📚';
+  const msg=pct>=80?'Xuất sắc! Bạn nắm rất vững.':pct>=60?'Khá tốt! Cố gắng thêm nhé.':pct>=40?'Cần ôn tập thêm.':'Hãy ôn tập kỹ hơn nhé!';
+  document.getElementById('playArea').innerHTML=`
+    <div class="play-card result-screen">
+      <div class="result-emoji">${emoji}</div>
+      <div class="result-score">${pct}%</div>
+      <div class="result-label">${playScore} / ${total} câu đúng</div>
+      <div class="result-sub">${msg}</div>
+      <div class="result-actions">
+        <button class="btn btn-primary" onclick="renderPlayPanel()">🔄 Làm lại</button>
+        <button class="btn btn-secondary" onclick="switchTab('manage',document.querySelectorAll('.tab')[1])">📋 Xem câu hỏi</button>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>

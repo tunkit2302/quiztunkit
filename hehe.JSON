@@ -1,0 +1,52 @@
+[
+  {
+    "question": "Thủ đô của Việt Nam là?",
+    "answers": {
+      "A": "Hồ Chí Minh",
+      "B": "Hà Nội",
+      "C": "Đà Nẵng",
+      "D": "Huế"
+    },
+    "correct": "B"
+  },
+  {
+    "question": "2² + 3² = ?",
+    "answers": {
+      "A": "10",
+      "B": "11",
+      "C": "13",
+      "D": "25"
+    },
+    "correct": "C"
+  },
+  {
+    "question": "HTTP là viết tắt của?",
+    "answers": {
+      "A": "HyperText Transfer Protocol",
+      "B": "High Tech Transfer Protocol",
+      "C": "HyperText Terminal Protocol",
+      "D": "Home Transfer Protocol"
+    },
+    "correct": "A"
+  },
+  {
+    "question": "Nguyên tố hóa học có ký hiệu Fe là?",
+    "answers": {
+      "A": "Đồng",
+      "B": "Nhôm",
+      "C": "Sắt",
+      "D": "Kẽm"
+    },
+    "correct": "C"
+  },
+  {
+    "question": "Năm nào Việt Nam thống nhất đất nước?",
+    "answers": {
+      "A": "1973",
+      "B": "1974",
+      "C": "1975",
+      "D": "1976"
+    },
+    "correct": "C"
+  }
+]
